@@ -33,7 +33,7 @@ bool vpa_reserve(vpa *foo, size_t n)
 	if(foo && SIZE_MAX/foo->elsz >= n) {
 		if(foo->sz < n*foo->elsz) {
 			const size_t sz = foo->sz,
-			newsz = sz+sz/2 > n*foo->elsz : sz+sz/2 : n*foo->sz;
+			newsz = sz+sz/2 > n*foo->elsz ? sz+sz/2 : n*foo->elsz;
 			void *new = realloc(foo->arr, newsz);
 			if(new) {
 				foo->arr = new;

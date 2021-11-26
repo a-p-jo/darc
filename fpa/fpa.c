@@ -67,11 +67,11 @@ bool fpa_reserve(struct hdr **foo, size_t n)
 		const size_t efsz = n * ELSZ(foo),
 		       sz = SZ(foo);
 		if(sz < efsz) {
-			size_t newsz = (sz+sz/2 > efsz? sz+sz/2 : efsz);
+			size_t newsz = sz+sz/2 > efsz? sz+sz/2 : efsz;
 			if(SIZE_MAX-HDR_SZ >= newsz) {
 				struct hdr *new = realloc(*foo-1, newsz+HDR_SZ);
 				if(new) {
-					new->sz = newsz+HDR_SZ;
+					new->sz = newsz;
 					/* Update caller's ref */
 					*foo = new+1;
 					return true;

@@ -26,4 +26,5 @@ The interface of these is somewhat uniform. The methods provided are :
 Further information may be found in the `.h` files of each implementation.
 
 In terms of performance, `mga` is faster than `vpa`, but not by much.
+
 Both are about twice as fast as `fpa` & `std::vector.push_back()` (which are close, with `fpa` being marginally faster).

@@ -33,6 +33,6 @@ int main(int argc, char **argv)
 	
 	printf("It took %.3Lf ms for %zu iterations.\n", mili_seconds, load); 
 
-	myvec_free(&x);
+	myvec_destroy(&x);
 	return EXIT_SUCCESS;
 }	

@@ -34,31 +34,37 @@
 /* Expands function definitons for previously DYARR_DECL()'d <name> */
 
 #define MGA_DEF(name)                                                         \
-	/* free()'s .arr & resets all feilds to 0 */                          \
-	void name##_free(name *foo)                                           \
+	                                                                      \
+	name name##_create(const size_t n)                                    \
 	{                                                                     \
-		if(foo) {                                                     \
+		enum { elsz = sizeof(name##_eltype) };                        \
+		                                                              \
+		name res = {0};                                               \
+		if(n > 0 && n < SIZE_MAX/elsz && (res.arr = malloc(n*elsz)) ) \
+			res.sz = n*elsz;                                      \
+		return res;                                                   \
+	}                                                                     \
+	                                                                      \
+	void name##_destroy(name *foo)                                        \
+	{                                                                     \
+		if(foo != NULL) {                                             \
 			free(foo->arr);                                       \
 			foo->arr = NULL;                                      \
 			foo->len = foo->sz  = 0;		              \
 		}                                                             \
 	}                                                                     \
 									      \
-	/* Ensures capacity of at least n elements in .arr */                 \
-	bool name##_reserve(name *foo, size_t n)                              \
+	bool name##_reserve(name *foo, const size_t n)                        \
 	{                                                                     \
-		enum {                                                        \
-			elsz = sizeof(name##_eltype),                         \
-			max_n = SIZE_MAX/elsz                                 \
-		};                                                            \
+		enum { elsz = sizeof(name##_eltype) };                        \
 									      \
-		/* NULL ptr or overflow check */                              \
-		if(foo && max_n >= n) {                                       \
-			if(foo->sz < n*elsz) {                                \
-				const size_t sz = foo->sz,                    \
-				newsz = sz+sz/2 > n*elsz ? sz+sz/2 : n*elsz;  \
+		if(foo != NULL && n < SIZE_MAX/elsz) {                        \
+			const size_t minreq = n*elsz, sz = foo->sz;           \
+			if(sz < minreq) {                                     \
+				const size_t newsz = sz+sz/2 > minreq ?       \
+							sz+sz/2 : minreq;     \
 				void *new = realloc(foo->arr, newsz);         \
-				if(new) {                                     \
+				if(new != NULL) {                             \
 					foo->arr = new;                       \
 					foo->sz = newsz;                      \
 				} else                                        \
@@ -69,20 +75,20 @@
 			return false;                                         \
 	}                                                                     \
 	                                                                      \
-	/* Inserts [src[i], src[i+n]) at .arr[i]. */                          \
-	bool name##_insert(name *dst, size_t i,                               \
-				const name##_eltype *restrict src, size_t n)  \
+	bool name##_insert(name *dst, const size_t i,                         \
+			const name##_eltype *restrict src, const size_t n)    \
 	{                                                                     \
 		enum { elsz = sizeof(name##_eltype) };                        \
 									      \
-		if(!n)                                                        \
+		if(n == 0)                                                    \
 			return true;                                          \
-		/* NULL ptr, overflow, out of bounds and space check */       \
-		else if(dst && src && SIZE_MAX-n >= dst->len && i <= dst->len \
-				&& name##_reserve(dst, dst->len+n)) {         \
+		size_t len;                                                   \
+		if(dst != NULL && src != NULL                                 \
+				&& SIZE_MAX-n >= (len = dst->len) && i <= len \
+				&& name##_reserve(dst, len+n)) {              \
 			                                                      \
 			/* move elements at i to i+n to preserve them */      \
-			memcpy(dst->arr+i+n, dst->arr+i, (dst->len-i)*elsz);  \
+			memcpy(dst->arr+i+n, dst->arr+i, (len-i)*elsz);       \
 			memcpy(dst->arr+i, src, n*elsz);                      \
 			                                                      \
 			dst->len += n;                                        \
@@ -91,19 +97,20 @@
 			return false;                                         \
 	}                                                                     \
 	                                                                      \
-	/* Inserts [.arr[isrc], .arr[isrc+n]) at .arr[idst] */                \
-	bool name##_selfinsert(name *foo, size_t idst, size_t isrc, size_t n) \
+	bool name##_selfinsert(name *foo, const size_t idst,                  \
+			const size_t isrc, const size_t n)                    \
 	{                                                                     \
 		enum { elsz = sizeof(name##_eltype) };                        \
 		                                                              \
-		if(!n)                                                        \
+		if(n == 0)                                                    \
 			return true;                                          \
-		/* NULL, overflow, out-of-bounds and space checks */          \
-		else if(foo && SIZE_MAX-n >= foo->len && idst <= foo->len     \
-		&& isrc < foo->len && name##_reserve(foo, foo->len+n)) {      \
+		size_t len;                                                   \
+		if(foo != NULL && SIZE_MAX-n >= (len = foo->len)              \
+				&& idst <= len && isrc < len                  \
+				&& name##_reserve(foo, len+n)) {              \
 			                                                      \
 			memmove(foo->arr+idst+n, foo->arr+idst,               \
-					(foo->len-idst) * elsz);              \
+					(len-idst) * elsz);                   \
 			/* If idst < isrc, isrc has moved n ahead.
 			 * If idst == isrc, don't copy.
 			 */                                                   \
@@ -115,33 +122,33 @@
 			return false;                                         \
 	}                                                                     \
 									      \
-	/* Removes [.arr[i], .arr[i+n]) */                                    \
-	bool name##_remove(name *dst, size_t i, size_t n)                     \
+	bool name##_remove(name *dst, const size_t i, const size_t n)         \
 	{                                                                     \
 		enum { elsz = sizeof(name##_eltype) };                        \
 									      \
-		/* NULL ptr, overflow or out of bounds check */               \
-		if(dst && SIZE_MAX-i >= n && i+n < dst->len) {                \
+		size_t len;                                                   \
+		if(dst != NULL && SIZE_MAX-i >= n                             \
+				&& i+n < (len = dst->len)) {                  \
 			/* Shift elements at index > i one step back */       \
-			memmove(dst->arr+i, dst->arr+i+n,                     \
-				(dst->len-i-n) * elsz);                       \
+			memmove(dst->arr+i, dst->arr+i+n, (len-i-n) * elsz);  \
 			dst->len -= n;                                        \
 			return true;                                          \
 		} else                                                        \
 			return false;                                         \
 	}                                                                     \
 									      \
-	/* Reallocate to minimum requirement */                               \
 	void name##_shrink_to_fit(name *foo)                                  \
 	{                                                                     \
 		enum { elsz = sizeof(name##_eltype) };                        \
 									      \
 		/* Avoid realloc() call if not needed */                      \
-		if(foo && foo->sz > foo->len * elsz) {                        \
-			void *p = realloc(foo->arr, foo->len * elsz);         \
-			if(p) {                                               \
+		size_t len;                                                   \
+		if(foo != NULL && foo->sz > (len = foo->len) * elsz) {        \
+			const size_t minreq = len*elsz;                       \
+			void *p = realloc(foo->arr, minreq);                  \
+			if(p != NULL) {                                       \
 				foo->arr = p;                                 \
-				foo->sz  = foo->len * elsz;                   \
+				foo->sz  = minreq;                            \
 			}                                                     \
 		}                                                             \
 	}                                                                     \

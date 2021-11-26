@@ -1,5 +1,5 @@
 # darc
-darc stands for ***d***ynamic ***ar***ray ***c***ollection. 
+`darc` stands for ***D***ynamic ***AR***ray ***C***ollection. 
 
 This repository currently hosts 3 variants :
 

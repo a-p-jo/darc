@@ -23,8 +23,5 @@ The interface of these is somewhat uniform. The methods provided are :
 - `remove()`, remove some number of elements from some position in array.
 - `shrink_to_fit()`, free redundant allocations.
 
-Further information may be found in the `.h` files of each implementation.
-
-In terms of performance, `mga` is faster than `vpa`, but not by much.
-
-Both are about twice as fast as `fpa` & `std::vector.push_back()` (which are close, with `fpa` being marginally faster).
+Performance varies by platform/compiler/usecase. 
+`mga` and `vpa` are close, `fpa` is slowest by a significant margin, all three are measurably faster than `std::vector`.

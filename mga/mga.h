@@ -10,7 +10,8 @@
 	typedef __VA_ARGS__ name##_eltype;                                    \
 	typedef struct name { size_t len, sz; name##_eltype *arr; } name;     \
 	                                                                      \
-	void name##_free(name *);                                             \
+	name name##_create(size_t n);                                         \
+	void name##_destroy(name *);                                          \
 	bool name##_reserve(name *, size_t n);                                \
 	bool name##_insert(name *, size_t i,                                  \
 				const name##_eltype *restrict src, size_t n); \

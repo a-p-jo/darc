@@ -17,26 +17,30 @@ FPA fpa_create(size_t elnum, size_t elsz);
 /* free()'s internal allocations & NULLs FPA handle */
 void fpa_destroy(FPA_PTR);
 
-/* Returns number of elements in FPA, or -1 on error */
-long long fpa_len(FPA);
+/* Returns number of elements in FPA, or -1 when passed NULL */
+long long fpa_len(const FPA);
 
 /* Ensures capacity of at least n elements.
  * Returns true on success and false on failure.
  */
 bool fpa_reserve(FPA_PTR, size_t n);
 
-/* Inserts [src[i], src[i+n]) at index i in FPA.
- * Returns true on success and false on failure.
+/* If src != NULL, inserts n elements from src at index i.
+ * Else, moves elements at index >= i ahead by n, allowing 
+ * caller to construct in-place at index i (emplace).
+ *
+ * UB if src overlaps with passed fpa.
+ * Returns true if successful, else false.
  */
 bool fpa_insert(FPA_PTR, size_t i, const void *restrict src, size_t n);
 
-/* Inserts elements in indexes [isrc, isrc+n] in FPA at index idst.
+/* Inserts n elements from index isrc at index idst.
  * Returns true on success and false on failure.
  */
 bool fpa_selfinsert(FPA_PTR, size_t idst, size_t isrc, size_t n);
 
-/* Removes elements in indexes [i, i+n) in FPA.
- * Returns true on success and false on failure.
+/* Removes n elements from index i onwards.
+ * Returns true on success and false on failure (out-of-bounds).
  */
 bool fpa_remove(FPA, size_t i, size_t n);
 

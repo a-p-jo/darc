@@ -5,15 +5,15 @@
 #include <stddef.h>  /* size_t */
 
 typedef struct vpa {
-	/* buffer .arr is of .sz bytes allocated space
-	 * containing .len elements .elsz bytes each.
+	/* buffer .arr contains .sz elements of .elsz bytes
+	 * each, is allocated to hold upto .cap elements.
 	 */ 
-	size_t len, sz, elsz;
+	size_t len, cap, elsz;
 	void *arr; 
 } vpa;
 
 /* Returns alloc'd & init'd vpa of n elements elsz bytes each.
- * If elnum == 0  or on error; .sz = 0, .arr = NULL.
+ * If elnum == 0  or on error; .cap = 0, .arr = NULL.
  */
 vpa vpa_create(size_t n, size_t elsz);
 
@@ -21,31 +21,34 @@ vpa vpa_create(size_t n, size_t elsz);
 void vpa_destroy(vpa *);
 
 /* Ensures capacity of at least n elements in .arr
- * realloc()'s .arr if .sz < n * .elsz
+ * realloc()'s .arr if .cap < n
  * Returns true if successful, else false.
  */
 bool vpa_reserve(vpa *, size_t n);
 
-/* Inserts [src[i], src[i+n]) at .arr[i].
- * Reallocs if .sz < .len + n * .elsz
+/* If src != NULL, inserts n elements from src at .arr[i]
+ * Else, moves elements at index >= i ahead by n, allowing 
+ * caller to construct in-place at .arr[i] (emplace).
+ *
  * UB if src overlaps with .arr
+ * Reallocs if .cap < .len + n.
  * Returns true if successful, else false.
  */
 bool vpa_insert(vpa *, size_t i, const void *restrict src, size_t n);
 
-/* Inserts [.arr[isrc], .arr[isrc+n]) at .arr[idst].
- * Reallocs if .sz < .len + n * .elsz
+/* Inserts n elements from .arr[isrc] at .arr[idst].
+ * Reallocs if .cap < .len + n.
  * Returns true if successful, else false.
  */
 bool vpa_selfinsert(vpa *, size_t idst, size_t isrc, size_t n);
 
-/* Removes [.arr[i], .arr[i+n])
+/* Removes n elements from .arr[i] onwards.
  * Returns true on success or false on failure (out-of-bounds).
  */
 bool vpa_remove(vpa *, size_t i, size_t n);
 
 /* Dynamic arrays overallocate for efficiency,
- * Reallocs .arr to eliminate redundant space, if any.
+ * Reallocs .arr (if not already) .cap == .sz
  */
 void vpa_shrink_to_fit(vpa *);
 

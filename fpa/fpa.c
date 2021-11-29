@@ -9,7 +9,7 @@
 
 /* Bookeeping header preceeding caller's array */
 struct hdr {
-	size_t len, sz, elsz;
+	size_t len, cap, elsz;
 
 	/* Align most restrictively so struct hdr * casts to any <type> * */
 	#if __STDC_VERSION__ < 201112L
@@ -27,12 +27,11 @@ enum { HDR_SZ = sizeof(struct hdr) };
 void *fpa_create(const size_t n, const size_t elsz)
 {
 	if(elsz != 0 && SIZE_MAX/elsz >= n && SIZE_MAX - HDR_SZ >= n*elsz) {
-		const size_t reqsz = n*elsz;
-		struct hdr *new = malloc(HDR_SZ + reqsz);
+		struct hdr *new = malloc(HDR_SZ + n*elsz);
 
 		if(new != NULL) {
 			new->len = 0;
-			new->sz = reqsz;
+			new->cap = n;
 			new->elsz = elsz;
 			/* Return array region, ahead of header */
 			return new+1;
@@ -51,7 +50,7 @@ void fpa_destroy(struct hdr **foo)
 
 /* Access header feilds given caller's array */
 #define LEN(foo)  ( (*foo-1)->len  )
-#define SZ(foo)   ( (*foo-1)->sz   )
+#define CAP(foo)  ( (*foo-1)->cap  )
 #define ELSZ(foo) ( (*foo-1)->elsz )
 
 long long fpa_len(const struct hdr *src)
@@ -61,16 +60,18 @@ long long fpa_len(const struct hdr *src)
 
 bool fpa_reserve(struct hdr **foo, const size_t n)
 {
-	if(foo != NULL && *foo != NULL && SIZE_MAX/ELSZ(foo) >= n) {
-		const size_t minreq = n * ELSZ(foo), sz = SZ(foo);
-
-		if(sz < minreq) {
-			#define max(x,y) x > y ? x : y
-			const size_t newsz = max(sz + sz/2, minreq);
-			struct hdr *new = realloc(*foo-1, newsz + HDR_SZ);
+	size_t elsz;
+	if(foo != NULL && *foo != NULL && SIZE_MAX/(elsz = ELSZ(foo)) >= n) {
+		const size_t cap = CAP(foo);
+		if(cap < n) {
+			size_t newcap = cap+cap/2;
+			if(newcap < n || SIZE_MAX/elsz < newcap)
+				newcap = n;
+			
+			struct hdr *new = realloc(*foo-1, HDR_SZ + newcap*elsz);
 
 			if(new != NULL) {
-				new->sz = newsz;
+				new->cap = newcap;
 				/* Update caller's ref */
 				*foo = new+1;
 				return true;
@@ -95,9 +96,10 @@ bool fpa_insert(struct hdr **dst, const size_t i, const void *restrict src, cons
 
 		/* move elements at i to i+n to preserve them */
 		memcpy(at_i + n*elsz, at_i, (len-i) * elsz);
-		memcpy(at_i, src, n*elsz);
-
-		LEN(dst) += n;
+		/* if src == NULL, caller will emplace, don't copy */
+		if(src != NULL)
+			memcpy(at_i, src, n*elsz);
+		LEN(dst) = len+n;
 		return true;
 	} else
 		return false;
@@ -122,7 +124,7 @@ bool fpa_selfinsert(struct hdr **foo, const size_t idst, const size_t isrc, cons
 		 */
 		memmove(at_idst, at_isrc + (idst < isrc) * n*elsz,
 				n*elsz * (idst != isrc));
-		LEN(foo) += n;
+		LEN(foo) = len+n;
 		return true;
 	} else
 		return false;
@@ -136,8 +138,8 @@ bool fpa_remove(struct hdr *dst, const size_t i, const size_t n)
 		unsigned char *at_i = (unsigned char *)(dst+1) + i*elsz;
 
 		/* Shift elements at index > i one step back */
-		memmove(at_i, at_i + n*elsz, (len-i-n)*elsz);
-		dst->len -= n;
+		memmove(at_i, at_i + n*elsz, (len-i-n) * elsz);
+		dst->len = len-n;
 		return true;
 	} else
 		return false;
@@ -145,14 +147,13 @@ bool fpa_remove(struct hdr *dst, const size_t i, const size_t n)
 
 void fpa_shrink_to_fit(struct hdr **foo)
 {
-	size_t len, elsz;
+	size_t len;
 	/* Avoid realloc() call if not needed */
-	if(foo != NULL && *foo != NULL 
-	&& SZ(foo) > (len = LEN(foo)) * (elsz = ELSZ(foo)) ) {
+	if(foo != NULL && *foo != NULL && CAP(foo) > (len = LEN(foo)) ) {
+		struct hdr *new = realloc(foo, HDR_SZ + len * ELSZ(foo));
 
-		struct hdr *new = realloc(foo, HDR_SZ + len*elsz);
 		if(new != NULL) {
-			new->sz = len*elsz;
+			new->cap = len;
 			*foo = new+1;
 		}
 	}

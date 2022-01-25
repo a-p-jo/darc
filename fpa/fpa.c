@@ -95,7 +95,7 @@ bool fpa_insert(struct hdr **dst, const size_t i, const void *restrict src, cons
 		unsigned char *at_i = (unsigned char *)(*dst) + i*elsz;
 
 		/* move elements at i to i+n to preserve them */
-		memcpy(at_i + n*elsz, at_i, (len-i) * elsz);
+		memmove(at_i + n*elsz, at_i, (len-i) * elsz);
 		/* if src == NULL, caller will emplace, don't copy */
 		if(src != NULL)
 			memcpy(at_i, src, n*elsz);

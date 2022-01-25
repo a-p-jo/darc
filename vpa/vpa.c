@@ -60,7 +60,7 @@ bool vpa_insert(vpa *dst, const size_t i, const void *restrict src, const size_t
 		unsigned char *at_i = (unsigned char *)dst->arr + i*elsz;
 
 		/* move elements at i to i+n to preserve them */
-		memcpy(at_i + n*elsz, at_i, (len-i) * dst->elsz);
+		memmove(at_i + n*elsz, at_i, (len-i) * dst->elsz);
 		/* if src == NULL, caller will emplace, don't copy */
 		if(src != NULL)
 			memcpy(at_i, src, n*elsz);

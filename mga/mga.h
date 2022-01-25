@@ -90,7 +90,7 @@
 				&& name##_reserve(dst, len+n)) {              \
 			                                                      \
 			/* move elements at i to i+n to preserve them */      \
-			memcpy(dst->arr+i+n, dst->arr+i, (len-i)*elsz);       \
+			memmove(dst->arr+i+n, dst->arr+i, (len-i)*elsz);      \
 			/* if src == NULL, caller will emplace, don't copy */ \
 			if(src != NULL)                                       \
 				memcpy(dst->arr+i, src, n*elsz);              \

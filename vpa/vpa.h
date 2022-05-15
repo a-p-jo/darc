@@ -4,23 +4,25 @@
 #include <stdbool.h> /* bool   */
 #include <stddef.h>  /* size_t */
 
+/* arr is a buffer of len elems allocated for upto cap elems,
+ * where each elem is elsz bytes in size.
+ */
 typedef struct vpa {
-	/* buffer .arr contains .sz elements of .elsz bytes
-	 * each, is allocated to hold upto .cap elements.
-	 */ 
-	size_t len, cap, elsz;
-	void *arr; 
+        size_t len, cap, elsz;
+        void *arr;
+        void *(*realloc)(void *, size_t), (*free)(void *);
 } vpa;
 
 /* Returns alloc'd & init'd vpa of n elements elsz bytes each.
  * If elnum == 0  or on error; .cap = 0, .arr = NULL.
  */
-vpa vpa_create(size_t n, size_t elsz);
+vpa vpa_create(size_t n, size_t elsz,
+        void *(*realloc)(void *, size_t), void (*free)(void *));
 
 /* free()'s .arr & resets all feilds to 0 */
 void vpa_destroy(vpa *);
 
-/* Ensures capacity of at least n elements in .arr
+/* Ensures capacity of at least n elems in .arr
  * realloc()'s .arr if .cap < n
  * Returns true if successful, else false.
  */
@@ -48,7 +50,7 @@ bool vpa_selfinsert(vpa *, size_t idst, size_t isrc, size_t n);
 bool vpa_remove(vpa *, size_t i, size_t n);
 
 /* Dynamic arrays overallocate for efficiency,
- * Reallocs .arr (if not already) .cap == .sz
+ * Reallocs .arr (if not already) to .cap == .len
  */
 void vpa_shrink_to_fit(vpa *);
 

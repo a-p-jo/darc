@@ -12,6 +12,9 @@ This repo hosts 3 type-generic C99 implementations :
 3. `fpa` (***F***at ***P***ointer ***A***rray) :
 - simpler syntax 
 - safer (bookeeping info not overwritable).
+4. `stkvec` (**St**ac**k** **Vec**tor) :
+- similar to `mga`; uses `alloca()`
+- unsafe due to risk of stack overflow
 
 My priorities are :
 1. Correctness
@@ -27,5 +30,6 @@ The interface is mostly uniform, providing :
 - `remove()`, remove some number of elements from some position in array.
 - `shrink_to_fit()`, free redundant allocations.
 - Direct access to raw array and bookkeeping data.
+- Custom allocator support.
 
 Exact performance characteristics vary. In general, `mga` and `vpa` are equivalent, `fpa` is much slower; all three are better than `std::vector`.

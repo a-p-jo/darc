@@ -93,7 +93,7 @@ bool vpa_remove(vpa *dst, size_t i, size_t n)
 	/* NULL ptr, overflow or out of bounds check */
 	size_t elsz, len;
 	if (dst && SIZE_MAX-i >= n && (elsz = dst->elsz)
-			&& i+n < (len = dst->len)) {
+			&& i+n <= (len = dst->len)) {
 		unsigned char *at_i = (unsigned char *)dst->arr + i*elsz;
 
 		/* Shift elements at index > i one step back */

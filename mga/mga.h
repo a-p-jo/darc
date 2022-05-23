@@ -2,9 +2,9 @@
 #define MGA_H
 
 #include <stdbool.h> /* bool, true, false */
-#include <stddef.h>  /* size_t             */
+#include <stddef.h>  /* size_t            */
 
-/* Declares typedefs and function prototypes, for headers. */
+/* Declares types and functions */
 #define MGA_DECL(scope, name, ...)                                            \
 	typedef __VA_ARGS__ name##_eltype;                                    \
 	typedef struct name {                                                 \
@@ -29,7 +29,6 @@
 
 #include <string.h>  /* memcpy(), memmove() */
 
-/* stdlib.h may not provide SIZE_MAX */
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t)-1)
 #endif
@@ -123,7 +122,7 @@
 	{                                                                     \
 		enum {elsz = sizeof(name##_eltype)};                          \
 		size_t len;                                                   \
-		if (dst && SIZE_MAX-i >= n && i+n < (len = dst->len)) {       \
+		if (dst && SIZE_MAX-i >= n && i+n <= (len = dst->len)) {      \
 			/* Shift elements at index > i one step back */       \
 			memmove(dst->arr+i, dst->arr+i+n, (len-i-n)*elsz);    \
 			dst->len = len-n;                                     \

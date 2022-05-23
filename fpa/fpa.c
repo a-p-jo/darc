@@ -129,7 +129,7 @@ bool fpa_selfinsert(hdr **foo, size_t idst, size_t isrc, size_t n)
 bool fpa_remove(hdr *dst, size_t i, size_t n)
 {
 	size_t len;
-	if (dst-- && SIZE_MAX-i >= n && i+n < (len = dst->len)) {
+	if (dst-- && SIZE_MAX-i >= n && i+n <= (len = dst->len)) {
 		size_t elsz = dst->elsz;
 		unsigned char *at_i = (unsigned char *)(dst+1) + i*elsz;
 

@@ -1,7 +1,7 @@
 # darc
 `darc` stands for ***D***ynamic ***AR***ray ***C***ollection. 
 
-This repo hosts 3 type-generic C99 implementations :
+This repo hosts 5 type-generic C99 implementations :
 
 1. `mga` (***M***acro ***G***enerated ***A***rray)
 - type-safe
@@ -12,9 +12,12 @@ This repo hosts 3 type-generic C99 implementations :
 3. `fpa` (***F***at ***P***ointer ***A***rray) :
 - simpler syntax 
 - safer (bookeeping info not overwritable).
-4. `stkvec` (**St**ac**k** **Vec**tor) :
+4. `stkvec` (***St***ac***k*** ***Vec***tor) :
 - similar to `mga`; uses `alloca()`
 - unsafe due to risk of stack overflow
+5. `sbovec` (***S***mall ***B***uffer ***O***ptimized ***Vec***tor) :
+- similar to `mga`; provides easily customizable short buffer optimization with good defaults.
+- perhaps the most optimal.
 
 My priorities are :
 1. Correctness
@@ -32,4 +35,4 @@ The interface is mostly uniform, providing :
 - Direct access to raw array and bookkeeping data.
 - Custom allocator support.
 
-Exact performance characteristics vary. In general, `mga` and `vpa` are equivalent, `fpa` is much slower; all three are better than `std::vector`.
+Exact performance characteristics vary. In general, are better than `std::vector`.

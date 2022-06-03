@@ -8,9 +8,9 @@
 #define SBOVEC_DECL(scope, name, sbocap, ...)                                 \
 	typedef __VA_ARGS__ name##_eltype;                                    \
 	enum { name##_sbocap =                                                \
-	(sbocap)? (sbocap):1 > sizeof( struct{name##_eltype *p;size_t q;})    \
+	(sbocap)? (sbocap):1 > sizeof(struct{void *p;size_t q;})              \
 	/sizeof(name##_eltype) ?                                              \
-	(sbocap)? (sbocap):1 : sizeof( struct{name##_eltype *p;size_t q;})    \
+	(sbocap)? (sbocap):1 : sizeof(struct{void *p;size_t q;})              \
 	/sizeof(name##_eltype) };                                             \
 	                                                                      \
 	typedef struct name {                                                 \
@@ -90,7 +90,6 @@
 	                                                                      \
 	scope void name##_destroy(name *foo)                                  \
 	{                                                                     \
-		enum { sbocap = name##_sbocap };                              \
 		if (foo) {                                                    \
 			if (foo->big)                                         \
 				foo->free(foo->arr), foo->big = false;        \
@@ -105,15 +104,17 @@
 			size_t cap = name##_cap(foo);                         \
 			if (cap < n) {                                        \
 				size_t newcap = cap+cap/2;                    \
-				if (newcap < n || SIZE_MAX/elsz < newcap)     \
+				if (newcap < n || newcap > SIZE_MAX/elsz)     \
 					newcap = n;                           \
 				                                              \
 				void *p = foo->realloc(foo->big?              \
 						foo->arr : NULL,newcap*elsz); \
 				if (p) {                                      \
 					if (!foo->big)                        \
-						memcpy(p, foo->sbo, foo->len),\
-						foo->big = true;              \
+						memcpy(                       \
+							p, foo->sbo,          \
+							foo->len*elsz         \
+						), foo->big = true;           \
 					foo->arr = p;                         \
 					foo->cap = newcap;                    \
 				} else                                        \
@@ -190,10 +191,10 @@
 		};                                                            \
 		/* Avoid realloc() call if not needed */                      \
 		size_t len;                                                   \
-		if (foo && foo->big && name##_cap(foo) > (len = foo->len)) {  \
-			if (len <= sbocap) {                                  \
+		if (foo && foo->big && foo->cap > (len = foo->len)) {         \
+			if (len <= sbocap) { /* Move to short buffer */       \
 				void *p = foo->arr;                           \
-				memcpy(foo->sbo, p, len);                     \
+				memcpy(foo->sbo, p, len*elsz);                \
 				foo->free(p), foo->big = false;               \
 			} else {                                              \
 				void *p = foo->realloc(foo->arr, len*elsz);   \

@@ -31,7 +31,7 @@
  * "vT" is a previously declared vector-type.
  * "n"  is a unsigned integer rvalue sans side-effects.
  *
- * For example, "ivec v = STKVEC_INIT(ivec, 0);"
+ * For example, "ivec v = STKVEC_CREATE(ivec, 0);"
  * sets v's length & capacity to 0 and array to NULL.
  *
  * Is a constant expression when n is 0.

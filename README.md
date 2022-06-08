@@ -3,21 +3,30 @@
 
 This repo hosts 5 type-generic C99 implementations :
 
-1. `mga` (***M***acro ***G***enerated ***A***rray)
-- type-safe
-- 0-cost abstraction, allows type-specific optimisations.
-2. `vpa` (***V***oid ***P***ointer ***A***rray) :
-- least code size
-- most flexible
-3. `fpa` (***F***at ***P***ointer ***A***rray) :
-- simpler syntax 
-- safer (bookeeping info not overwritable).
-4. `stkvec` (***St***ac***k*** ***Vec***tor) :
-- similar to `mga`; uses `alloca()`
-- unsafe due to risk of stack overflow
-5. `sbovec` (***S***mall ***B***uffer ***O***ptimized ***Vec***tor) :
-- similar to `mga`; provides easily customizable short buffer optimization with good defaults.
-- perhaps the most optimal.
+- `mga` (***M***acro ***G***enerated ***A***rray)
+
+  Implemented with code-generating macros alike C++ class templates,
+  enabling the characteristic type safety and excellent optimisations with similar drawbacks (though to a lesser degree) of
+  potential binary bloat, slow compiles and long, cryptic error messages.
+- `vpa` (***V***oid ***P***ointer ***A***rray)
+
+  Instead of the monomorphisation of `mga`, `vpa` uses boxing with `void *`s.
+  The benefits are extreme flexibility, low binary footprint, fast & few compiles
+  and similar run-time performance to type-specific code if LTO is enabled. The drawbacks
+  are the lack of static type-checking and the need to perform much type-casting.
+- `fpa` (***F***at ***P***ointer ***A***rray)
+  
+  This employs the same "fat pointer" trick/approach as [stb_ds](http://nothings.org/stb_ds/) or [libcello](https://libcello.org/learn/a-fat-pointer-library), i.e. , the caller only deals directly with the pointer to data, and the metadata is hiddden in memory preceeding that. The advantage here is mostly just the reduction in syntactic and conceptual complexity to the user. However, the extra indirection plays spoilsport with performance (even with LTO) and tricky corruptions are possible due to silent pointer invalidation.
+- `sbomga` (***S***hort ***B***uffer ***O***ptimised ***MGA***)
+
+  Implemented in the same way as `mga`, but provides customisable short buffer optimisation with good defaults.
+  Best suited to normally small, short-lived dynamic arrays - like strings - since the extra branching makes it a bit less
+  efficient for larger arrays, especially in tight loops.
+- `stkmga` (***St***ac***k*** ***MGA***)
+
+  Implemented with well-documented macros to use `alloca` for all allocation/reallocation, enabling a stack-allocated
+  dynamic array. As the stack is usually hot in the cache, it has excellent locality. However, allocation failure is undetectable UB
+  and causes stack overflow, and macros can cause binary bloat. User descretion is advised. 
 
 My priorities are :
 1. Correctness
@@ -35,4 +44,4 @@ The interface is mostly uniform, providing :
 - Direct access to raw array and bookkeeping data.
 - Custom allocator support.
 
-Exact performance characteristics vary. In general, are better than `std::vector`.
+Exact performance characteristics vary. In general, all are better than `std::vector`, as only trivially copyable elements are supported, enabling us to use `realloc`.

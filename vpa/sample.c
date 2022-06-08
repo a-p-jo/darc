@@ -24,12 +24,12 @@ int main(int argc, char **argv)
 	}
 
 	load *= LOAD_FACTOR;
-	vpa x = vpa_create(0, sizeof(size_t), realloc, free);
+	vpa x = vpa_create(0, sizeof(size_t));
 	clock_t begin = clock();
 	for(size_t i = 0; i < load; i++)
 		vpa_push(&x, &i);
 
-	long double mili_seconds = (long double)(clock() - begin) / CLOCKS_PER_SEC * 1000;
+	long double mili_seconds = ((long double)(clock() - begin) / CLOCKS_PER_SEC) * 1000;
 	printf("It took %.3Lf ms for %zu iterations.\n", mili_seconds, load); 
 
 	vpa_destroy(&x);

@@ -1,5 +1,5 @@
-#ifndef STKVEC_H
-#define STKVEC_H
+#ifndef STKMGA_H
+#define STKMGA_H
 
 #include <stddef.h>  /* size_t              */
 #include <string.h>  /* memcpy(), memmove() */
@@ -11,17 +11,19 @@
 
 /* Declares vector-type "vT" of elements of type "...".
  * The element type is aliased to "vT_eltype".
+ * The maximum capacity is set to "vT_maxcap".
  *
- * For example, "STKVEC_DECL(ivec, int)"
+ * For example, "STKMGA_DECL(ivec, int)"
  * declares ivec as a vector of ivec_eltype (ints).
  *
  * Usable at any scope; semicolon optional.
  */
-#define STKVEC_DECL(vT, ...)             \
-	typedef __VA_ARGS__ vT##_eltype; \
-	typedef struct vT {              \
-		size_t len, cap;         \
-		vT##_eltype *arr;        \
+#define STKMGA_DECL(vT, ...)                                            \
+	typedef __VA_ARGS__ vT##_eltype;                                \
+	static const size_t vT##_maxcap = SIZE_MAX/sizeof(vT##_eltype); \
+	typedef struct vT {                                             \
+		size_t len, cap;                                        \
+		vT##_eltype *arr;                                       \
 	} vT;
 
 /* Initializes empty vector of vector-type "vT"
@@ -29,14 +31,15 @@
  *
  * Where,
  * "vT" is a previously declared vector-type.
- * "n"  is a unsigned integer rvalue sans side-effects.
+ * "n"  is a unsigned integer rvalue sans side-effects
+ * that does not exceed vT_maxcap.
  *
- * For example, "ivec v = STKVEC_CREATE(ivec, 0);"
+ * For example, "ivec v = STKMGA_CREATE(ivec, 0);"
  * sets v's length & capacity to 0 and array to NULL.
  *
  * Is a constant expression when n is 0.
  */
-#define STKVEC_CREATE(vT, n) (vT) {                          \
+#define STKMGA_CREATE(vT, n) (vT) {                          \
 	.cap = (n),                                          \
 	.arr = (n)? alloca((n) * sizeof(vT##_eltype)) : NULL \
 }
@@ -45,22 +48,22 @@
  * hold n vT_eltype elements in v.
  *
  * Where,
- * "vT", "n" are as specified for STKVEC_CREATE.
+ * "vT", "n" are as specified for STKMGA_CREATE.
  * "v"  is a modifiable lvalue of type vT.
  * 
- * For example, "STKVEC_RESERVE(ivec, v, 100);"
+ * For example, "STKMGA_RESERVE(ivec, v, 100);"
  * allocates as needed such that v.arr can store
  * upto 100 ints.
  *
  * Allocation failure (stack overflow) is 
  * undetectable and is UB.
  */
-#define STKVEC_RESERVE(vT, v, n) do {                       \
+#define STKMGA_RESERVE(vT, v, n) do {                       \
         enum { elsz = sizeof(vT##_eltype) };                \
                                                             \
         if (v.cap < (n)) {                                  \
                 size_t newcap = v.cap+v.cap/2;              \
-                if (newcap < (n) || SIZE_MAX/elsz < newcap) \
+                if (newcap < (n) || newcap > vT##_maxcap)   \
                         newcap = (n);                       \
                 void *new = alloca(newcap*elsz);            \
                 memcpy(new, v.arr, v.len*elsz);             \
@@ -73,46 +76,46 @@
  * src and v.arr must not overlap.
  *
  * Where,
- * "vT", "n" are as specified for STKVEC_CREATE.
- * "v" is as specified for STKVEC_RESERVE.
+ * "vT", "n" are as specified for STKMGA_CREATE.
+ * "v" is as specified for STKMGA_RESERVE.
  * "i" is an unsigned integer rvalue sans side-effects.
  * "src" is an array-of or pointer-to rvalue for vT_eltype
  * sans side-effects.
  * "ok" is a modifiable integer lvalue.
  *
- * For example, "STKVEC_INSERT(ivec, v, v.len, (int[]){42}, 1, (int){1});"
+ * For example, "STKMGA_INSERT(ivec, v, v.len, (int[]){42}, 1, (int){1});"
  * appends 42 to v.arr .
  */
-#define STKVEC_INSERT(vT, v, i, src, n, ok) do {            \
-        enum { elsz = sizeof(vT##_eltype) };                \
-                                                            \
-        if ((n) && SIZE_MAX-(n) >= v.len && (i) <= v.len) { \
-                STKVEC_RESERVE(vT, v, v.len+(n));           \
-                memmove(                                    \
-                        v.arr+(i)+(n), v.arr+(i),           \
-                        (v.len-i)*elsz                      \
-                );                                          \
-                if ((src))                                  \
-                        memcpy(v.arr+(i), (src), (n)*elsz); \
-                v.len += (n);                               \
-        }  else if ((n))                                    \
-                ok = 0;                                     \
+#define STKMGA_INSERT(vT, v, i, src, n, ok) do {               \
+        enum { elsz = sizeof(vT##_eltype) };                   \
+                                                               \
+        if ((n) && vT##_maxcap-(n) >= v.len && (i) <= v.len) { \
+                STKMGA_RESERVE(vT, v, v.len+(n));              \
+                memmove(                                       \
+                        v.arr+(i)+(n), v.arr+(i),              \
+                        (v.len-i)*elsz                         \
+                );                                             \
+                if ((src))                                     \
+                        memcpy(v.arr+(i), (src), (n)*elsz);    \
+                v.len += (n);                                  \
+        }  else if ((n))                                       \
+                ok = 0;                                        \
 } while (0)
 
-/* Similar to STKVEC_INSERT, except src is v.arr
+/* Similar to STKMGA_INSERT, except src is v.arr
  * from index isrc onwards.
  *
- * For example, "STKVEC_SELFINSERT(ivec, v, v.len, 0, v.len, (int){1});"
+ * For example, "STKMGA_SELFINSERT(ivec, v, v.len, 0, v.len, (int){1});"
  * appends v.arr to itself, duplicating it in-place.
  */
-#define STKVEC_SELFINSERT(vT, v, idst, isrc, n, ok) do {    \
+#define STKMGA_SELFINSERT(vT, v, idst, isrc, n, ok) do {    \
         enum { elsz = sizeof(vT##_eltype) };                \
                                                             \
         if (                                                \
-                (n) && SIZE_MAX-(n) >= v.len                \
+                (n) && vT##_maxcap-(n) >= v.len             \
                 && (idst) <= v.len && (isrc) < v.len        \
         )  {                                                \
-                STKVEC_RESERVE(vT, v, v.len+(n));           \
+                STKMGA_RESERVE(vT, v, v.len+(n));           \
                 memmove(                                    \
                         v.arr+(idst)+(n), v.arr+(idst),     \
                         (v.len-(idst))*elsz                 \
@@ -131,24 +134,24 @@
  * setting ok to 0 if out-of-bounds.
  *
  * Where,
- * "vT", "n" are as specified for STKVEC_CREATE.
- * "v" is as specified for STKVEC_RESERVE.
- * "i", "ok" are as specified for STKVEC_INSERT.
+ * "vT", "n" are as specified for STKMGA_CREATE.
+ * "v" is as specified for STKMGA_RESERVE.
+ * "i", "ok" are as specified for STKMGA_INSERT.
  *
- * For example, "STKVEC(ivec, v, 0, 4, (int){0});"
+ * For example, "STKMGA(ivec, v, 0, 4, (int){0});"
  * removes the first 4 elements from v.arr .
  */
-#define STKVEC_REMOVE(vT, v, i, n, ok) do {            \
-        enum { elsz = sizeof(vT##_eltype) };           \
-                                                       \
-        if (SIZE_MAX-(i) >= (n) && (i)+(n) <= v.len) { \
-                memmove(                               \
-			v.arr+(i), v.arr+(i)+(n),      \
-                        (v.len-(i)-(n))*elsz           \
-		);                                     \
-                v.len -= (n);                          \
-        } else                                         \
-                ok = 0;                                \
+#define STKMGA_REMOVE(vT, v, i, n, ok) do {               \
+        enum { elsz = sizeof(vT##_eltype) };              \
+                                                          \
+        if (vT##_maxcap-(i) >= (n) && (i)+(n) <= v.len) { \
+                memmove(                                  \
+			v.arr+(i), v.arr+(i)+(n),         \
+                        (v.len-(i)-(n))*elsz              \
+		);                                        \
+                v.len -= (n);                             \
+        } else                                            \
+                ok = 0;                                   \
 } while (0)
 
 #endif

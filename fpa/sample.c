@@ -8,7 +8,7 @@
 
 enum { LOAD_FACTOR = 1000*1000 };
 
-#define fpa_push(dst, val) fpa_insert(&dst, fpa_len(dst), &val, 1)
+#define fpa_push(dst, val) fpa_insert(&dst, *fpa_len(dst), &val, 1)
 
 int main(int argc, char **argv)
 {
@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 	}
 
 	load *= LOAD_FACTOR;
-	size_t *x = fpa_create(0, sizeof(size_t), realloc, free);
+	size_t *x = fpa_create(0, sizeof(size_t));
 	clock_t begin = clock();
 	for(size_t i = 0; i < load; i++)
 		fpa_push(x, i);

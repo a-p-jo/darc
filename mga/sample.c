@@ -1,11 +1,12 @@
-#include <stdio.h>    /* printf(), fputs(), stderr          */
-#include <time.h>     /* clock_t, clock(), CLOCKS_PER_SEC   */
-#include <stdlib.h>   /* EXIT_SUCCESS, EXIT_FAILURE         */
-#include <inttypes.h> /* strtoumax()                        */
-#include <errno.h>    /* errno, ERANGE                      */
+#include <stdio.h>    /* printf(), fputs(), stderr        */
+#include <time.h>     /* clock_t, clock(), CLOCKS_PER_SEC */
+#include <stdlib.h>   /* EXIT_SUCCESS, EXIT_FAILURE       */
+#include <inttypes.h> /* strtoumax()                      */
+#include <errno.h>    /* errno, ERANGE                    */
+#include <stdlib.h>   /* realloc(), free()                */
 
 #include "mga.h"
-MGA_IMPL(myvec, size_t)
+MGA_IMPL(myvec, realloc, free, size_t)
 
 enum {LOAD_FACTOR = 1000*1000};
 
@@ -25,12 +26,12 @@ int main(int argc, char **argv)
 	}
 
 	load *= LOAD_FACTOR;
-	myvec x = myvec_create(0, realloc, free);
+	myvec x = myvec_create(0);
 	clock_t begin = clock();
 	for(size_t i = 0; i < load; i++)
 		myvec_push(&x, i);
 	
-	long double mili_seconds = (long double)(clock() - begin) / CLOCKS_PER_SEC*1000;
+	long double mili_seconds = ((long double)(clock() - begin) / CLOCKS_PER_SEC) * 1000;
 	printf("It took %.3Lf ms for %zu iterations.\n", mili_seconds, load);
 
 	myvec_destroy(&x);

@@ -4,8 +4,8 @@
 #include <inttypes.h> /* strtoumax()                        */
 #include <errno.h>    /* errno, ERANGE                      */
 
-#include "stkvec.h"
-STKVEC_DECL(myvec, size_t)
+#include "stkmga.h"
+STKMGA_DECL(myvec, size_t)
 
 enum {LOAD_FACTOR = 311000};
 
@@ -20,12 +20,12 @@ int main(int argc, char **argv)
 	}
 
 	load *= LOAD_FACTOR;
-	myvec x = STKVEC_CREATE(myvec, 0);
+	myvec x = STKMGA_CREATE(myvec, 0);
 	clock_t begin = clock();
 	for(size_t i = 0; i < load; i++)
-		STKVEC_INSERT(myvec, x, x.len, &i, 1, (int){0});
+		STKMGA_INSERT(myvec, x, x.len, &i, 1, (int){0});
 
-	long double mili_seconds = (long double)(clock() - begin) / CLOCKS_PER_SEC*1000;
+	long double mili_seconds = ((long double)(clock() - begin) / CLOCKS_PER_SEC) * 1000;
 	printf("It took %.3Lf ms for %zu iterations.\n", mili_seconds, load);
 
 	return EXIT_SUCCESS;

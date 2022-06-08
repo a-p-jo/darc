@@ -2,16 +2,21 @@
 #include <stdbool.h> /* bool, true, false           */
 #include <string.h>  /* memcpy(), memmove()         */
 
+/* Edit the below to use a custom allocator */
+#include <stdlib.h>
+static void *(*const fpa_realloc)(void *, size_t) = realloc;
+static void  (*const fpa_free)   (void *)         = free;
+
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t)-1)
 #endif
 
-/* Bookeeping header preceeding caller's array */
+/* Metadata header preceeding caller's array 
+ * Aligned such that hdr * casts to any T * .
+ */
 typedef struct hdr {
 	size_t len, cap, elsz;
-	void *(*realloc)(void *, size_t), (*free)(void *);
 
-	/* Align most restrictively so struct hdr * casts to any <type> * */
 	#if __STDC_VERSION__ < 201112L
 	union {
 		long double f; long long i;
@@ -21,59 +26,69 @@ typedef struct hdr {
 	max_align_t _align[];
 	#endif
 } hdr;
+enum { HDRSZ = sizeof(hdr) };
 
-enum {HDRSZ = sizeof(hdr)};
+/* Returns maximum possible capacity for elements of given size */
+static inline size_t maxcap(size_t elsz) { return (SIZE_MAX-HDRSZ)/elsz; }
 
-void *fpa_create(size_t n, size_t elsz,
-	void *(*realloc)(void *, size_t), void (*free)(void *))
+size_t fpa_maxcap(const hdr *h)
 {
-	if (elsz && SIZE_MAX/elsz >= n && SIZE_MAX-HDRSZ >= n*elsz) {
-		hdr *new = realloc(NULL, HDRSZ + n*elsz);
+	if (h)
+		return maxcap(h[-1].elsz);
+	else
+		return 0;
+}
+
+size_t *fpa_len(const hdr *h)
+{
+	/* Const cast */
+	return h ? (size_t *)&h[-1].len : NULL;
+}
+
+void *fpa_cast(hdr *h, size_t elsz)
+{
+	if (h && elsz) {
+		h[-1].elsz = elsz;
+		return h;
+	} else
+		return NULL;
+}
+
+void *fpa_create(size_t n, size_t elsz)
+{
+	if (elsz && n <= maxcap(elsz)) {
+		hdr *new = fpa_realloc(NULL, HDRSZ + n*elsz);
 		if (new) {
-			new->len = 0, new->cap = n;
-			new->elsz = elsz;
-			new->realloc = realloc, new->free = free;
-			/* Return array region, ahead of header */
-			return new+1;
+			*new = (hdr) {.len = 0, .cap = n, .elsz = elsz};
+			return new+1; /* Return array region */
 		}
 	}
 	return NULL;
 }
 
-/* Access header feilds given caller's array */
-#define GET(foo, attr) ( (*foo-1)->attr )
-#define LEN(foo)  GET(foo, len)
-#define CAP(foo)  GET(foo, cap)
-#define ELSZ(foo) GET(foo, elsz)
-#define REALLOC(foo) GET(foo, realloc)
-#define FREE(foo)   GET(foo, free)
+/* Return pointer to metadata header given pointer to caller's array */
+static inline hdr *hdrp(hdr **fpa_ptr) { return (*fpa_ptr)-1; }
 
-void fpa_destroy(hdr **foo)
+void fpa_destroy(hdr **h)
 {
-	if (foo && *foo)
-		FREE(foo)(*foo-1), *foo = NULL;
-}
-
-long long fpa_len(const hdr *src)
-{
-	return src? (src-1)->len : -1;
+	if (h && *h)
+		fpa_free(hdrp(h)), *h = NULL;
 }
 
 bool fpa_reserve(hdr **foo, size_t n)
 {
-	size_t elsz;
-	if (foo && *foo && SIZE_MAX/(elsz = ELSZ(foo)) >= n) {
-		size_t cap = CAP(foo);
-		if (cap < n) {
-			size_t newcap = cap+cap/2;
-			if (newcap < n || SIZE_MAX/elsz < newcap)
+	register hdr h; /* header is saved to h, avoids repeated indirection */
+
+	if ( foo && *foo && n <= maxcap((h = *hdrp(foo)).elsz) ) {
+		if (h.cap < n) {
+			size_t newcap = h.cap+h.cap/2;
+			if (newcap < n || newcap > maxcap(h.elsz))
 				newcap = n;
 			
-			hdr *new = REALLOC(foo)(*foo-1, HDRSZ + newcap*elsz);
+			hdr *new = fpa_realloc(hdrp(foo), HDRSZ + newcap*h.elsz);
 			if(new) {
 				new->cap = newcap;
-				/* Update caller's ref */
-				*foo = new+1;
+				*foo = new+1; /* Update caller's data pointer */
 				return true;
 			}
 		} else
@@ -82,22 +97,26 @@ bool fpa_reserve(hdr **foo, size_t n)
 	return false;
 }
 
+typedef unsigned char byte;
+
 bool fpa_insert(hdr **dst, size_t i, const void *restrict src, size_t n)
 {
 	if (n == 0)
 		return true;
-	size_t len;
-	if (dst && *dst && SIZE_MAX-n >= (len = LEN(dst)) && i <= len
-			&& fpa_reserve(dst, len+n)) {
-		size_t elsz = ELSZ(dst);
-		unsigned char *at_i = (unsigned char *)(*dst) + i*elsz;
+
+	register hdr h;
+	if (dst && *dst && maxcap((h = *hdrp(dst)).elsz) - n >= h.len
+			&& i <= h.len && fpa_reserve(dst, h.len+n)) {
+
+		byte *at_i = (byte *)(*dst) + i*h.elsz;
 
 		/* move elements at i to i+n to preserve them */
-		memmove(at_i + n*elsz, at_i, (len-i)*elsz);
+		memmove(at_i + n*h.elsz, at_i, (h.len-i)*h.elsz);
 		/* if src == NULL, caller will emplace, don't copy */
 		if (src)
-			memcpy(at_i, src, n*elsz);
-		LEN(dst) = len+n;
+			memcpy(at_i, src, n*h.elsz);
+
+		hdrp(dst)->len = h.len+n;
 		return true;
 	} else
 		return false;
@@ -107,35 +126,40 @@ bool fpa_selfinsert(hdr **foo, size_t idst, size_t isrc, size_t n)
 {
 	if (n == 0)
 		return true;
-	size_t len;
-	if (foo && *foo && SIZE_MAX-n >= (len = LEN(foo)) && idst <= len && isrc < len 
-			&& fpa_reserve(foo, len+n)) {
-		size_t elsz = ELSZ(foo);
-		unsigned char *at_idst = (unsigned char *)(*foo) + idst*elsz,
-			      *at_isrc = (unsigned char *)(*foo) + isrc*elsz;
 
-		memmove(at_idst + n*elsz, at_idst, (len-idst) * elsz);
+	register hdr h;
+	if (foo && *foo && maxcap((h = *hdrp(foo)).elsz) - n >= h.len
+			&& idst <= h.len && isrc < h.len && fpa_reserve(foo, h.len+n)) {
+
+		byte *at_idst = (byte *)(*foo) + idst*h.elsz;
+		byte *at_isrc = (byte *)(*foo) + isrc*h.elsz;
+
+		memmove(at_idst + n*h.elsz, at_idst, (h.len-idst) * h.elsz);
 		/* If idst < isrc, isrc has moved n ahead.
 		 * If idst == isrc, don't copy.
 		 */
-		memmove(at_idst, at_isrc + (idst < isrc) * n*elsz,
-				n*elsz * (idst != isrc));
-		LEN(foo) = len+n;
+		memmove(at_idst, at_isrc + (idst < isrc) * n*h.elsz,
+				n*h.elsz * (idst != isrc));
+
+		hdrp(foo)->len = h.len+n;
 		return true;
 	} else
 		return false;
 }
 
+/* Since removal does not relocate data and invalidate refrences,
+ * it does not need a double-pointer.
+ */
 bool fpa_remove(hdr *dst, size_t i, size_t n)
 {
-	size_t len;
-	if (dst-- && SIZE_MAX-i >= n && i+n <= (len = dst->len)) {
-		size_t elsz = dst->elsz;
-		unsigned char *at_i = (unsigned char *)(dst+1) + i*elsz;
-
+	register hdr h;
+	if (dst && maxcap((h = dst[-1]).elsz) - i >= n && i+n <= h.len) {
+		
+		byte *at_i = (byte *)dst + i*h.elsz;
 		/* Shift elements at index > i one step back */
-		memmove(at_i, at_i + n*elsz, (len-i-n)*elsz);
-		dst->len = len-n;
+		memmove(at_i, at_i + n*h.elsz, (h.len-i-n)*h.elsz);
+
+		dst[-1].len = h.len-n;
 		return true;
 	} else
 		return false;
@@ -143,11 +167,11 @@ bool fpa_remove(hdr *dst, size_t i, size_t n)
 
 void fpa_shrink_to_fit(hdr **foo)
 {
-	size_t len;
+	register hdr h;
 	/* Avoid realloc() call if not needed */
-	if (foo && *foo && CAP(foo) > (len = LEN(foo)) ) {
-		struct hdr *new = REALLOC(foo)(foo, HDRSZ + len*ELSZ(foo));
+	if (foo && *foo && (h = *hdrp(foo)).cap > h.len) {
+		struct hdr *new = fpa_realloc(hdrp(foo), HDRSZ + h.len*h.elsz);
 		if (new)
-			new->cap = len, *foo = new+1;
+			new->cap = h.len, *foo = new+1;
 	}
 }

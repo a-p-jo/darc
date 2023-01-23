@@ -51,14 +51,14 @@
  *   - name_remove()
  *   - name_shrink_to_fit()
  */
-#define SBOMGA_DECL(scope, name, reallocfn, freefn, sbocap, ...)              \
+#define SBOMGA_DECL(scope, name, sbocap, ...)                                 \
 typedef __VA_ARGS__ name##_eltype;                                            \
-								              \
+									      \
 enum {                                                                        \
 	name##_sbocap = SBOMGA_MAX(SBOMGA_MAX(sbocap, 1),                     \
 	sizeof(struct {name##_eltype *p; size_t q;}) / sizeof(name##_eltype)) \
 };								              \
-                                                                              \
+									      \
 typedef struct name {                                                         \
 	union {                                                               \
 		struct { name##_eltype *arr; size_t cap; };                   \
@@ -67,15 +67,13 @@ typedef struct name {                                                         \
 	size_t len : SBOMGA_NBITS(size_t)-1;                                  \
 	bool big : 1;                                                         \
 } name;                                                                       \
-                                                                              \
+									      \
 static const size_t name##_maxcap =                                           \
 	SIZE_MAX/SBOMGA_MAX(sizeof(name##_eltype), 2); /* -1 bit -> max/2 */  \
-static void *(*const name##_realloc)(void *, size_t) = reallocfn;             \
-static void (*const name##_free)(void *) = freefn;                            \
-								              \
+									      \
 scope name##_eltype *name##_arr(const name *);                                \
 scope size_t name##_cap(const name *foo);                                     \
-								              \
+									      \
 scope name name##_create(size_t);                                             \
 scope void name##_destroy(name *);                                            \
 scope bool name##_reserve(name *, size_t);                                    \
@@ -91,7 +89,10 @@ scope void name##_shrink_to_fit(name *);                                      \
 #include <string.h>  /* memcpy(), memmove() */
 
 /* Expands function definitons for previously MGA_DECL()'d name */
-#define SBOMGA_DEF(scope, name)                                               \
+#define SBOMGA_DEF(scope, name, reallocfn, freefn)                            \
+static void *(*const name##_realloc)(void *, size_t) = reallocfn;             \
+static void (*const name##_free)(void *) = freefn;                            \
+									      \
 scope name##_eltype *name##_arr(const name *foo)                              \
 {                                                                             \
 	if (!foo)                                                             \
@@ -101,7 +102,7 @@ scope name##_eltype *name##_arr(const name *foo)                              \
 	else                                                                  \
 		return (name##_eltype *)foo->sbo; /* Const cast */            \
 }                                                                             \
-								              \
+									      \
 scope size_t name##_cap(const name *foo)                                      \
 {                                                                             \
 	if (!foo)                                                             \
@@ -111,18 +112,18 @@ scope size_t name##_cap(const name *foo)                                      \
 	else                                                                  \
 		return name##_sbocap;                                         \
 }                                                                             \
-								              \
+									      \
 scope name name##_create(size_t n)                                            \
 {                                                                             \
 	enum { elsz = sizeof(name##_eltype) };                                \
-	                                                                      \
+									      \
 	name res = { .big = n > name##_sbocap };                              \
 	if (res.big && n <= name##_maxcap       	                      \
 			   && (res.arr = name##_realloc(NULL, n*elsz)))       \
 		res.cap = n;                                                  \
 	return res;                                                           \
 }                                                                             \
-								              \
+									      \
 scope void name##_destroy(name *foo)                                          \
 {                                                                             \
 	if (foo) {                                                            \
@@ -131,21 +132,21 @@ scope void name##_destroy(name *foo)                                          \
 		foo->len = 0;                                                 \
 	}                                                                     \
 }                                                                             \
-								              \
+									      \
 scope bool name##_reserve(name *foo, size_t n)                                \
 {                                                                             \
 	enum { elsz = sizeof(name##_eltype) };                                \
-                                                                              \
+									      \
 	if (foo && n <= name##_maxcap) {                                      \
 		register bool big = foo->big;                                 \
 		register size_t cap = big? foo->cap : name##_sbocap;          \
-		                                                              \
+									      \
 		if (cap < n) {                                                \
 			size_t newcap = cap+cap/2; /* Try growing 1.5x */     \
 			/* Or grow to n elements if its bigger or overflow */ \
 			if (newcap < n || newcap > name##_maxcap)             \
 				newcap = n;                                   \
-								              \
+									      \
 			void *p = name##_realloc(big? foo->arr : NULL,        \
 					newcap*elsz);                         \
 			if (p) {                                              \
@@ -161,84 +162,84 @@ scope bool name##_reserve(name *foo, size_t n)                                \
 	} else                                                                \
 		return false;                                                 \
 }                                                                             \
-								              \
+									      \
 scope bool name##_insert(name *dst, size_t i,                                 \
 			 const name##_eltype *restrict src, size_t n)         \
 {                                                                             \
 	enum { elsz = sizeof(name##_eltype) };                                \
-                                                                              \
+									      \
 	if (!n)                                                               \
 		return true;                                                  \
-                                                                              \
+									      \
 	register size_t len;                                                  \
 	if (dst && name##_maxcap-n >= (len = dst->len) && i <= len            \
 				     && name##_reserve(dst, len+n)) {         \
-		                                                              \
+									      \
 		register name##_eltype *arr = dst->big? dst->arr : dst->sbo;  \
-		                                                              \
+									      \
 		/* move elements at i to i+n to preserve them */              \
 		memmove(arr+i+n, arr+i, (len-i)*elsz);                        \
 		/* if src == NULL, caller will emplace, don't copy */         \
 		if (src)                                                      \
 			memcpy(arr+i, src, n*elsz);                           \
-		                                                              \
+									      \
 		dst->len = len+n;                                             \
 		return true;                                                  \
 	} else                                                                \
 		return false;                                                 \
 }                                                                             \
-								              \
+									      \
 scope bool name##_selfinsert(name *foo, size_t idst, size_t isrc, size_t n)   \
 {                                                                             \
 	enum { elsz = sizeof(name##_eltype) };                                \
-	                                                                      \
+									      \
 	if (!n)                                                               \
 		return true;                                                  \
-	                                                                      \
+									      \
 	register size_t len;                                                  \
 	if (foo && name##_maxcap-n >= (len = foo->len) && idst <= len         \
 		       && isrc < len && name##_reserve(foo, len+n)) {         \
-								              \
+									      \
 		register name##_eltype *arr = foo->big? foo->arr : foo->sbo;  \
-		                                                              \
+									      \
 		memmove(arr+idst+n, arr+idst, (len-idst)*elsz);               \
 		/* If idst < isrc, isrc has moved n ahead.
 		 * If idst == isrc, don't copy.
 		 */                                                           \
 		memmove(arr+idst, arr+isrc + (idst < isrc)*n,                 \
 					n*elsz * (idst != isrc));             \
-                                                                              \
+									      \
 		foo->len = len+n;                                             \
 		return true;                                                  \
 	} else                                                                \
 		return false;                                                 \
 }                                                                             \
-								              \
+									      \
 scope bool name##_remove(name *dst, size_t i, size_t n)                       \
 {                                                                             \
 	enum { elsz = sizeof(name##_eltype) };                                \
-                                                                              \
+									      \
 	register size_t len;                                                  \
 	if (dst && name##_maxcap-i >= n && i+n <= (len = dst->len)) {         \
-		                                                              \
+									      \
 		register name##_eltype *arr = dst->big? dst->arr : dst->sbo;  \
 		/* Shift elements at index > i one step back */               \
 		memmove(arr+i, arr+i+n, (len-i-n)*elsz);                      \
-		                                                              \
+									      \
 		dst->len = len-n;                                             \
 		return true;                                                  \
 	} else                                                                \
 		return false;                                                 \
 }                                                                             \
-								              \
+									      \
 scope void name##_shrink_to_fit(name *foo)                                    \
 {                                                                             \
 	enum { elsz = sizeof(name##_eltype) };                                \
-                                                                              \
+									      \
 	/* Avoid realloc() call if not needed */                              \
 	register size_t len;                                                  \
 	if (foo && foo->big && foo->cap > (len = foo->len)) {                 \
-                                                                              \
+									      \
 		if (len <= name##_sbocap) { /* Move to short buffer */        \
 			void *p = foo->arr;                                   \
 			memcpy(foo->sbo, p, len*elsz);                        \
@@ -252,8 +253,8 @@ scope void name##_shrink_to_fit(name *foo)                                    \
 }                                                                             \
 
 #define SBOMGA_IMPL(name, reallocfn, freefn, sbocap, ...)                     \
-SBOMGA_DECL(static inline, name, reallocfn, freefn, sbocap, __VA_ARGS__)      \
-SBOMGA_DEF(static inline, name)
+SBOMGA_DECL(static inline, name, sbocap, __VA_ARGS__)                         \
+SBOMGA_DEF(static inline, name, reallocfn, freefn)
 
 #endif
 #endif

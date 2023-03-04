@@ -12,8 +12,11 @@ This repo hosts 5 type-generic C99 implementations :
 
   Instead of the monomorphisation of `mga`, `vpa` uses boxing with `void *`s.
   The benefits are extreme flexibility, low binary footprint, fast & few compiles
-  and similar run-time performance to type-specific code if LTO is enabled. The drawbacks
-  are the lack of static type-checking and the need to perform much type-casting.
+  and similar run-time performance to type-specific code if LTO is enabled.
+  
+  The lack of static type-checking and the awkwardness of type-casting are trivially
+  mitigated by using `TBVPA_GEN()` as defined in `tbvpa.h` to generate 0-cost typed bindings
+  that make it look and feel like using `mga`.
 - `fpa` (***F***at ***P***ointer ***A***rray)
   
   This employs the same "fat pointer" trick/approach as [stb_ds](http://nothings.org/stb_ds/) or [libcello](https://libcello.org/learn/a-fat-pointer-library), i.e. , the caller only deals directly with the pointer to data, and the metadata is hiddden in memory preceeding that. The advantage here is mostly just the reduction in syntactic and conceptual complexity to the user. However, the extra indirection plays spoilsport with performance (even with LTO) and tricky corruptions are possible due to silent pointer invalidation.

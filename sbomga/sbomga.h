@@ -5,6 +5,15 @@
 #include <stddef.h>  /* size_t            */
 #include <limits.h>  /* CHAR_BIT          */
 
+/* Silence unnecessary compiler warnings when static funcs/vars unused. */
+#if __STDC_VERSION__ >= 202311L
+	#define SBOMGA_UNUSED [[maybe_unused]]
+#elif defined __GNUC__
+	#define SBOMGA_UNUSED __attribute__((unused))
+#else
+	#define SBOMGA_UNUSED
+#endif
+
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t)-1)
 #endif
@@ -55,8 +64,9 @@
 typedef __VA_ARGS__ name##_eltype;                                            \
 									      \
 enum {                                                                        \
-	name##_sbocap = SBOMGA_MAX(SBOMGA_MAX(sbocap, 1),                     \
-	sizeof(struct {name##_eltype *p; size_t q;}) / sizeof(name##_eltype)) \
+	name##_sbocap = SBOMGA_MAX(SBOMGA_MAX(sbocap, 1),sizeof(              \
+		struct {name##_eltype *p; size_t q;}) / sizeof(name##_eltype  \
+	))                                                                    \
 };								              \
 									      \
 typedef struct name {                                                         \
@@ -68,7 +78,7 @@ typedef struct name {                                                         \
 	bool big : 1;                                                         \
 } name;                                                                       \
 									      \
-static const size_t name##_maxcap =                                           \
+SBOMGA_UNUSED static const size_t name##_maxcap =                             \
 	SIZE_MAX/SBOMGA_MAX(sizeof(name##_eltype), 2); /* -1 bit -> max/2 */  \
 									      \
 scope name##_eltype *name##_arr(const name *);                                \
@@ -253,8 +263,8 @@ scope void name##_shrink_to_fit(name *foo)                                    \
 }                                                                             \
 
 #define SBOMGA_IMPL(name, reallocfn, freefn, sbocap, ...)                     \
-SBOMGA_DECL(static inline, name, sbocap, __VA_ARGS__)                         \
-SBOMGA_DEF(static inline, name, reallocfn, freefn)
+SBOMGA_DECL(SBOMGA_UNUSED static inline, name, sbocap, __VA_ARGS__)           \
+SBOMGA_DEF(SBOMGA_UNUSED static inline, name, reallocfn, freefn)
 
 #endif
 #endif

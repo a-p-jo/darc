@@ -4,6 +4,15 @@
 #include <stdbool.h> /* bool, true, false */
 #include <stddef.h>  /* size_t            */
 
+/* Silence unnecessary compiler warnings when static funcs/vars unused. */
+#if __STDC_VERSION__ >= 202311L
+	#define MGA_UNUSED [[maybe_unused]]
+#elif defined __GNUC__
+	#define MGA_UNUSED __attribute__((unused))
+#else
+	#define MGA_UNUSED
+#endif
+
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t)-1)
 #endif                                                                             
@@ -45,7 +54,8 @@
 typedef __VA_ARGS__ name##_eltype;                                            \
 typedef struct name { size_t len, cap; name##_eltype *arr; } name;            \
 									      \
-static const size_t name##_maxcap = SIZE_MAX/sizeof(name##_eltype);           \
+MGA_UNUSED static const size_t name##_maxcap =                                \
+	SIZE_MAX/sizeof(name##_eltype);                                       \
 									      \
 scope name name##_create(size_t);                                             \
 scope void name##_destroy(name *);                                            \
@@ -188,8 +198,8 @@ scope void name##_shrink_to_fit(name *foo)                                    \
 }                                                                             \
 
 #define MGA_IMPL(name, reallocfn, freefn, ...)                                \
-	MGA_DECL(static inline, name, __VA_ARGS__)                            \
-	MGA_DEF(static inline, name, reallocfn, freefn)
+	MGA_DECL(MGA_UNUSED static inline, name, __VA_ARGS__)                 \
+	MGA_DEF(MGA_UNUSED static inline, name, reallocfn, freefn)
 
 #endif
 #endif
